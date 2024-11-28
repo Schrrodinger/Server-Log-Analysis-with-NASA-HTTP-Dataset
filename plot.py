@@ -37,7 +37,11 @@ def plot_page():
         content_size_pattern = r'\s(\d+)$'
 
         # Read the log file
+<<<<<<< HEAD
+        base_df = spark.read.text("access_log_JulAug_95.txt")
+=======
         base_df = spark.read.text("access_log_JulAug_95")
+>>>>>>> a6e36a1b11b5e0619e874d0131a1a47db83aaaed
 
         # Extract fields using regex
         logs_df = base_df.select(
@@ -326,6 +330,80 @@ def plot_page():
         )
 
         return fig
+<<<<<<< HEAD
+    
+    def plot_content_size_distribution(data):
+    # Convert content size to KB for better readability
+        data['content_size_kb'] = data['content_size'] / 1024
+    
+    # Create histogram with custom bins
+        fig = px.histogram(
+            data,
+            x='content_size_kb',
+            nbins=50,
+            title='Distribution of Response Content Sizes',
+            color_discrete_sequence=['#3498db']  # Use a pleasant blue color
+    )
+    
+    # Calculate statistics for annotations
+        mean_size = data['content_size_kb'].mean()
+        median_size = data['content_size_kb'].median()
+    
+    # Update layout
+        fig.update_layout(
+            xaxis_title="Content Size (KB)",
+            yaxis_title="Number of Requests",
+            showlegend=False,
+            plot_bgcolor='white',
+            height=500,
+            annotations=[
+                dict(
+                    x=mean_size,
+                    y=fig.data[0].y.max(),
+                    xref="x",
+                    yref="y",
+                    text=f"Mean: {mean_size:.2f} KB",
+                    showarrow=True,
+                    arrowhead=2,
+                    ax=0,
+                    ay=-40
+            ),
+                dict(
+                    x=median_size,
+                    y=fig.data[0].y.max() * 0.85,
+                    xref="x",
+                    yref="y",
+                    text=f"Median: {median_size:.2f} KB",
+                    showarrow=True,
+                    arrowhead=2,
+                    ax=0,
+                    ay=-40
+            )
+        ],
+        # Format axis labels
+            xaxis=dict(
+                tickformat=",.1f",  # Add comma separator and show one decimal
+                rangemode="tozero"
+        ),
+            yaxis=dict(
+                tickformat=",",  # Add comma separator for thousands
+                rangemode="tozero"
+        ),
+            hoverlabel=dict(
+                bgcolor="white",
+                font_size=14,
+                font_family="Arial"
+        )
+    )
+    
+    # Update hover template
+        fig.update_traces(
+            hovertemplate="<b>Content Size:</b> %{x:.1f} KB<br>" +
+                      "<b>Count:</b> %{y:,}<br>" +
+                      "<extra></extra>"  # This removes the secondary box
+    )
+    
+        return fig
 
     # Function to create hourly traffic pattern plot
     def plot_hourly_traffic(data):
@@ -517,6 +595,199 @@ def plot_page():
     st.sidebar.write(f"Unique Hosts: {filtered_df['host'].nunique():,}")
     st.sidebar.write(f"Total Data Transferred: {filtered_df['content_size'].sum() / 1024**2:.2f} MB")
 
+=======
+
+    # Function to create hourly traffic pattern plot
+    def plot_hourly_traffic(data):
+        data['hour'] = data['timestamp'].dt.hour
+        hourly_traffic = data['hour'].value_counts().sort_index().reset_index()
+        hourly_traffic.columns = ['Hour', 'Count']
+
+        fig = px.line(
+            hourly_traffic,
+            x='Hour',
+            y='Count',
+            title='Hourly Traffic Pattern',
+            markers=True
+        )
+
+        fig.update_layout(
+            xaxis_title="Hour of Day",
+            yaxis_title="Number of Requests",
+            xaxis=dict(tickmode='linear', tick0=0, dtick=1)
+        )
+        return fig
+
+    def plot_daily_traffic(data):
+        # Extract day of week and create mapping for sorting
+        day_mapping = {
+            'Monday': 0,
+            'Tuesday': 1,
+            'Wednesday': 2,
+            'Thursday': 3,
+            'Friday': 4,
+            'Saturday': 5,
+            'Sunday': 6
+        }
+
+        # Add day of week column
+        data['day_of_week'] = data['timestamp'].dt.day_name()
+
+        # Calculate average traffic for each day of the week
+        daily_traffic = data.groupby('day_of_week')['timestamp'].count().reset_index()
+        daily_traffic.columns = ['Day', 'Count']
+
+        # Add sort key and sort by day of week
+        daily_traffic['sort_key'] = daily_traffic['Day'].map(day_mapping)
+        daily_traffic = daily_traffic.sort_values('sort_key')
+
+        # Create the line plot
+        fig = px.line(
+            daily_traffic,
+            x='Day',
+            y='Count',
+            title='Average Daily Traffic Pattern by Day of Week',
+            markers=True
+        )
+
+        # Update layout
+        fig.update_layout(
+            xaxis_title="Day of Week",
+            yaxis_title="Number of Requests",
+            xaxis=dict(
+                tickmode='array',
+                ticktext=daily_traffic['Day'],
+                tickvals=list(range(len(daily_traffic))),
+                tickangle=0
+            ),
+            yaxis=dict(
+                tickformat=",",  # Add comma separator for thousands
+                gridcolor='lightgray'
+            ),
+            plot_bgcolor='white',
+            hoverlabel=dict(
+                bgcolor="white",
+                font=dict(
+                    family="Arial",
+                    size=14,
+                    color="black"
+                )
+            )
+        )
+
+        # Update hover template
+        fig.update_traces(
+            hovertemplate="<b>%{x}</b><br>" +
+                          "Requests: %{y:,.0f}<br>" +
+                          "<extra></extra>",
+            line=dict(width=3),  # Make line thicker
+            marker=dict(
+                size=10,  # Make markers larger
+                line=dict(width=2, color='white')  # Add white border to markers
+            )
+        )
+
+        return fig
+
+    # Sidebar filters
+    st.sidebar.header("Filters")
+
+    # Date range filter
+    min_date = df['timestamp'].min().date()
+    max_date = df['timestamp'].max().date()
+    date_range = st.sidebar.date_input(
+        "Select Date Range",
+        value=(min_date, max_date),
+        min_value=min_date,
+        max_value=max_date
+    )
+
+    # Status code filter
+    status_codes = sorted(df['status'].unique())
+    selected_status = st.sidebar.multiselect(
+        "Status Codes",
+        status_codes,
+        default=status_codes
+    )
+
+    # Method filter
+    methods = sorted(df['method'].unique())
+    selected_methods = st.sidebar.multiselect(
+        "HTTP Methods",
+        methods,
+        default=methods
+    )
+
+    # Apply filters
+    mask = (
+        (df['timestamp'].dt.date >= date_range[0]) &
+        (df['timestamp'].dt.date <= date_range[1]) &
+        (df['status'].isin(selected_status)) &
+        (df['method'].isin(selected_methods))
+    )
+    filtered_df = df[mask]
+
+    # Display the selected plot
+    if plot_option == "Status Code Distribution":
+        st.plotly_chart(plot_status_distribution(filtered_df), use_container_width=True)
+        st.markdown("""
+        This visualization shows the distribution of HTTP status codes in the server logs:
+        - 2xx codes indicate successful requests
+        - 3xx codes indicate redirections
+        - 4xx codes indicate client errors
+        - 5xx codes indicate server errors
+        """)
+
+    elif plot_option == "Top Endpoints by Requests":
+        st.plotly_chart(plot_top_endpoints(filtered_df), use_container_width=True)
+        st.markdown("""
+        This chart displays the most frequently requested endpoints on the NASA web server,
+        helping identify the most popular content and potential bottlenecks.
+        """)
+
+    elif plot_option == "Request Methods Distribution":
+        st.plotly_chart(plot_method_distribution(filtered_df), use_container_width=True)
+        st.markdown("""
+        This pie chart shows the distribution of HTTP methods (GET, POST, etc.) used in requests,
+        indicating how clients are interacting with the server.
+        """)
+
+    elif plot_option == "Content Size Distribution":
+        st.plotly_chart(plot_content_size_distribution(filtered_df), use_container_width=True)
+        st.markdown("""
+        This histogram shows the distribution of response content sizes,
+        helping identify patterns in the size of content being served.
+        """)
+
+    elif plot_option == "Host Request Frequency":
+        st.plotly_chart(plot_host_frequency(filtered_df), use_container_width=True)
+        st.markdown("""
+        This visualization shows the hosts making the most requests to the server,
+        helping identify heavy users and potential abuse.
+        """)
+
+    elif plot_option == "Hourly Traffic Pattern":
+        st.plotly_chart(plot_hourly_traffic(filtered_df), use_container_width=True)
+        st.markdown("""
+        This line chart shows the pattern of requests throughout the day,
+        helping identify peak usage times and traffic patterns.
+        """)
+
+    else:  # Daily Traffic Pattern
+        st.plotly_chart(plot_daily_traffic(filtered_df), use_container_width=True)
+        st.markdown("""
+        This line chart shows the daily pattern of requests throughout the dataset period,
+        helping identify trends and unusual days.
+        """)
+
+    # Display data statistics
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Data Statistics")
+    st.sidebar.write(f"Total Requests: {len(filtered_df):,}")
+    st.sidebar.write(f"Unique Hosts: {filtered_df['host'].nunique():,}")
+    st.sidebar.write(f"Total Data Transferred: {filtered_df['content_size'].sum() / 1024**2:.2f} MB")
+
+>>>>>>> a6e36a1b11b5e0619e874d0131a1a47db83aaaed
     # Display raw data option
     if st.sidebar.checkbox("Show Raw Data"):
         st.subheader("Raw Data")
