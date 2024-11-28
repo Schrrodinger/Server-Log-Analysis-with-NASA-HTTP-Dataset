@@ -8,8 +8,6 @@ import numpy as np
 import glob
 from pyspark.sql.functions import regexp_extract, col, to_timestamp, hour
 import os
-import sys
-import os
 import re
 import sys
 import pandas as pd
@@ -18,6 +16,11 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import StringType, IntegerType
 import matplotlib.pyplot as plt
+import requests
+
+response = requests.get("http://localhost:8001/logs/status_distribution")
+status_data = response.json()
+
 
 
 def tolp_page():
@@ -29,9 +32,28 @@ def tolp_page():
         .appName("MyApp") \
         .getOrCreate()
 
-    # Load data
-    raw_data_file = 'access_log_JulAug_95'
+# Set the path for the dataset in the root directory
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    raw_data_file = os.path.join(current_dir, "access_log_JulAug_95.txt")
+
+# Debug log to confirm the path
+    st.write(f"Looking for file at: {raw_data_file}")
+
+# Load the file
     base_df = spark.read.text(raw_data_file)
+
+    # Debug log for the file path
+    st.write(f"Attempting to load file from: {raw_data_file}")
+
+# Check if the file exists
+    if not os.path.exists(raw_data_file):
+        st.error(f"File not found at: {raw_data_file}")
+    else:
+        st.success(f"File found at: {raw_data_file}")
+
+# Load the file using Spark
+    base_df = spark.read.text(raw_data_file)
+    base_df.show()
 
     # Define patterns for extraction
     host_pattern = r'(^\S+\.[\S+\.]+\S+)\s'
